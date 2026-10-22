@@ -27,6 +27,10 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
+        if (app()->isProduction()) {
+            throw new \RuntimeException('Los datos de demostración no se cargan en producción. Usa: php artisan db:seed --class=UsuariosInicialesSeeder --force');
+        }
+
         $administrador = User::factory()->create([
             'name' => 'Administrador',
             'email' => 'admin@bloqueria.test',

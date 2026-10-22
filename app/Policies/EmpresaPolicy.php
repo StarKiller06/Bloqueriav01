@@ -8,11 +8,12 @@ use App\Models\User;
 class EmpresaPolicy
 {
     /**
-     * Cualquier usuario puede registrar una bloquería nueva y queda como su administrador.
+     * Con el registro abierto, cualquier usuario registra una bloquería y queda como su administrador.
+     * Cerrado, solo existen las bloquerías que crea UsuariosInicialesSeeder.
      */
     public function create(User $user): bool
     {
-        return true;
+        return config('bloqueria.registro_abierto');
     }
 
     public function update(User $user, Empresa $empresa): bool

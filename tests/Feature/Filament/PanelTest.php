@@ -6,7 +6,6 @@ use App\Enums\Rol;
 use App\Filament\Pages\CargaInicialPapel;
 use App\Filament\Pages\ReportesMensuales;
 use App\Filament\Pages\Tenancy\EditarEmpresa;
-use App\Filament\Pages\Tenancy\RegistrarEmpresa;
 use App\Filament\Resources\Clientes\ClienteResource;
 use App\Filament\Resources\ComprasCemento\CompraCementoResource;
 use App\Filament\Resources\ConceptosCaja\ConceptoCajaResource;
@@ -25,6 +24,7 @@ use App\Models\User;
 use Filament\Facades\Filament;
 use Filament\Pages\Dashboard;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Route;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
@@ -82,12 +82,14 @@ class PanelTest extends TestCase
         $this->get(ProductoResource::getUrl('view', ['record' => $empresa->productos()->sole()], tenant: $empresa))->assertOk();
     }
 
-    public function test_a_new_user_opens_the_registration_of_a_bloqueria(): void
+    public function test_registration_is_closed_so_only_initial_users_can_enter(): void
     {
+        $this->assertFalse(Filament::getPanel('admin')->hasRegistration());
+        $this->assertFalse(Route::has('filament.admin.auth.register'));
+
         $this->actingAs(User::factory()->create())
             ->get(Filament::getPanel('admin')->getTenantRegistrationUrl())
-            ->assertOk()
-            ->assertSeeText(RegistrarEmpresa::getLabel());
+            ->assertNotFound();
     }
 
     public function test_encargado_opens_the_dashboard_but_not_the_empresa_profile(): void

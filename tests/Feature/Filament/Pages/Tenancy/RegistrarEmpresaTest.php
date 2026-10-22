@@ -20,6 +20,14 @@ class RegistrarEmpresaTest extends TestCase
         parent::setUp();
 
         Filament::setCurrentPanel(Filament::getPanel('admin'));
+        config(['bloqueria.registro_abierto' => true]);
+    }
+
+    public function test_with_registration_closed_nobody_can_register_a_bloqueria(): void
+    {
+        config(['bloqueria.registro_abierto' => false]);
+
+        $this->assertFalse(RegistrarEmpresa::canView());
     }
 
     public function test_registering_a_bloqueria_makes_the_user_its_administrator(): void

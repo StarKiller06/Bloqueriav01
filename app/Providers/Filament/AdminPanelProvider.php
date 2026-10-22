@@ -5,6 +5,7 @@ namespace App\Providers\Filament;
 use App\Filament\Pages\Tenancy\EditarEmpresa;
 use App\Filament\Pages\Tenancy\RegistrarEmpresa;
 use App\Models\Empresa;
+use Filament\Auth\Pages\Register;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -31,7 +32,7 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
             ->brandName('Bloquería')
             ->login()
-            ->registration()
+            ->registration(config('bloqueria.registro_abierto') ? Register::class : null)
             ->passwordReset()
             ->profile()
             ->tenant(Empresa::class)

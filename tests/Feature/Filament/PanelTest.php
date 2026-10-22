@@ -16,6 +16,7 @@ use App\Filament\Resources\Productos\ProductoResource;
 use App\Filament\Resources\Sucursales\SucursalResource;
 use App\Filament\Resources\Trabajadores\TrabajadorResource;
 use App\Filament\Resources\Users\UserResource;
+use App\Filament\Resources\Ventas\VentaResource;
 use App\Filament\Resources\ViajesArena\ViajeArenaResource;
 use App\Models\Empresa;
 use App\Models\User;
@@ -36,6 +37,7 @@ class PanelTest extends TestCase
     {
         return [
             'inicio' => [Dashboard::class],
+            'ventas' => [VentaResource::class],
             'caja' => [MovimientoCajaResource::class],
             'producción' => [ProduccionResource::class],
             'pagos a trabajadores' => [PagoTrabajadorResource::class],

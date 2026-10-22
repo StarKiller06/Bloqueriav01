@@ -8,7 +8,10 @@ use App\Actions\Inventario\RegistrarViajeArena;
 use App\Actions\Inventario\TrasladarBloques;
 use App\Actions\Produccion\PagarTrabajador;
 use App\Actions\Produccion\RegistrarProduccion;
+use App\Actions\Ventas\RegistrarAbono;
+use App\Actions\Ventas\RegistrarVenta;
 use App\Enums\ConceptoSistema;
+use App\Enums\FormaPago;
 use App\Enums\Rol;
 use App\Enums\TipoDocumento;
 use App\Models\Empresa;
@@ -19,7 +22,7 @@ class DatabaseSeeder extends Seeder
 {
     /**
      * Datos de demostración: una bloquería con dos sucursales, un administrador, un encargado,
-     * el bloque con su precio, trabajadores, clientes, caja, cemento, arena, producción y un pago de ejemplo.
+     * el bloque con su precio, trabajadores, clientes, caja, cemento, arena, producción, un pago y ventas de contado y a crédito de ejemplo.
      */
     public function run(): void
     {
@@ -58,7 +61,7 @@ class DatabaseSeeder extends Seeder
             ]);
         }
 
-        $empresa->clientes()->createMany([
+        [$clienteEjemplo, $constructora] = $empresa->clientes()->createMany([
             ['tipo_documento' => TipoDocumento::Cedula, 'documento' => '1010101010', 'nombre' => 'Cliente de ejemplo'],
             ['tipo_documento' => TipoDocumento::Nit, 'documento' => '900987654-3', 'nombre' => 'Constructora de ejemplo S.A.S.'],
         ]);
@@ -86,5 +89,14 @@ class DatabaseSeeder extends Seeder
 
         app(PagarTrabajador::class)($trabajadores[1]->fresh(), $inicio->copy()->addDays(4), user: $administrador);
         app(TrasladarBloques::class)($sucursal1, $sucursal2, $bloque, 100, $inicio->copy()->addDays(6), $encargado, 'Ejemplo');
+
+        $vender = app(RegistrarVenta::class);
+        $lineas = fn (int $cantidad, int $precio = 1800): array => [['producto' => $bloque, 'cantidad' => $cantidad, 'precio' => $precio]];
+
+        $vender($sucursal1, $lineas(150), FormaPago::Contado, $inicio->copy()->addDays(7), user: $encargado);
+        $vender($sucursal2, $lineas(200, 1750), FormaPago::Contado, $inicio->copy()->addDays(8), $clienteEjemplo, user: $encargado);
+        $credito = $vender($sucursal1, $lineas(300, 1700), FormaPago::Credito, $inicio->copy()->addDays(8), $constructora, $inicio->copy()->addDays(38), $administrador);
+        app(RegistrarAbono::class)($credito, 200000, $inicio->copy()->addDays(10), $administrador);
+        $vender($sucursal2, $lineas(100), FormaPago::Credito, $inicio->copy()->subDays(40), $clienteEjemplo, $inicio->copy()->subDays(10), $administrador);
     }
 }

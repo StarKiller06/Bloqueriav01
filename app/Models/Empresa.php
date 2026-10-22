@@ -92,9 +92,15 @@ class Empresa extends Model implements HasName
         return $this->hasMany(MovimientoCaja::class);
     }
 
+    /**
+     * Si el concepto aún no existe (porque se agregó en una versión nueva del sistema), se crea.
+     */
     public function conceptoSistema(ConceptoSistema $clave): ConceptoCaja
     {
-        return $this->conceptosCaja()->where('clave', $clave)->sole();
+        return $this->conceptosCaja()->firstOrCreate(
+            ['clave' => $clave],
+            ['nombre' => $clave->nombre(), 'tipo' => $clave->tipo()],
+        );
     }
 
     /**
@@ -195,6 +201,14 @@ class Empresa extends Model implements HasName
     public function trasladosBloques(): HasMany
     {
         return $this->hasMany(TrasladoBloques::class);
+    }
+
+    /**
+     * @return HasMany<Venta, $this>
+     */
+    public function ventas(): HasMany
+    {
+        return $this->hasMany(Venta::class);
     }
 
     /**

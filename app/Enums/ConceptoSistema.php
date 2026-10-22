@@ -14,6 +14,7 @@ enum ConceptoSistema: string
     case CompraCemento = 'compra_cemento';
     case ViajeArena = 'viaje_arena';
     case PagoTrabajador = 'pago_trabajador';
+    case AnulacionVenta = 'anulacion_venta';
 
     public function nombre(): string
     {
@@ -24,6 +25,7 @@ enum ConceptoSistema: string
             self::CompraCemento => 'Compra de cemento',
             self::ViajeArena => 'Viaje de arena',
             self::PagoTrabajador => 'Pago a trabajador',
+            self::AnulacionVenta => 'Anulación de venta',
         };
     }
 
@@ -31,7 +33,7 @@ enum ConceptoSistema: string
     {
         return match ($this) {
             self::SaldoInicial, self::VentaContado, self::AbonoCredito => TipoMovimiento::Entrada,
-            self::CompraCemento, self::ViajeArena, self::PagoTrabajador => TipoMovimiento::Gasto,
+            self::CompraCemento, self::ViajeArena, self::PagoTrabajador, self::AnulacionVenta => TipoMovimiento::Gasto,
         };
     }
 }

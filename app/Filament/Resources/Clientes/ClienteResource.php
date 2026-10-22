@@ -8,6 +8,7 @@ use App\Models\Cliente;
 use BackedEnum;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\Field;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
@@ -41,44 +42,56 @@ class ClienteResource extends Resource
     {
         return $schema
             ->columns(2)
-            ->components([
-                Select::make('tipo_documento')
-                    ->label('Tipo de documento')
-                    ->options(TipoDocumento::class)
-                    ->default(TipoDocumento::Cedula)
-                    ->required()
-                    ->live(),
-                TextInput::make('documento')
-                    ->label('Número de documento')
-                    ->required()
-                    ->maxLength(20)
-                    ->scopedUnique(modifyQueryUsing: fn (Builder $query, Get $get): Builder => $query
-                        ->where('tipo_documento', $get('tipo_documento'))),
-                TextInput::make('nombre')
-                    ->label('Nombre o razón social')
-                    ->required()
-                    ->maxLength(255)
-                    ->columnSpanFull(),
-                TextInput::make('email')
-                    ->label('Correo')
-                    ->email()
-                    ->maxLength(255)
-                    ->helperText('Aquí llegarán las facturas.'),
-                TextInput::make('telefono')
-                    ->label('Teléfono')
-                    ->tel()
-                    ->maxLength(20),
-                TextInput::make('direccion')
-                    ->label('Dirección')
-                    ->maxLength(255)
-                    ->columnSpanFull(),
-            ]);
+            ->components(static::campos());
+    }
+
+    /**
+     * También los usa la venta para registrar un cliente sin salir de ella.
+     *
+     * @return array<Field>
+     */
+    public static function campos(): array
+    {
+        return [
+            Select::make('tipo_documento')
+                ->label('Tipo de documento')
+                ->options(TipoDocumento::class)
+                ->default(TipoDocumento::Cedula)
+                ->required()
+                ->live(),
+            TextInput::make('documento')
+                ->label('Número de documento')
+                ->required()
+                ->maxLength(20)
+                ->scopedUnique(Cliente::class, modifyQueryUsing: fn (Builder $query, Get $get): Builder => $query
+                    ->where('tipo_documento', $get('tipo_documento'))),
+            TextInput::make('nombre')
+                ->label('Nombre o razón social')
+                ->required()
+                ->maxLength(255)
+                ->columnSpanFull(),
+            TextInput::make('email')
+                ->label('Correo')
+                ->email()
+                ->maxLength(255)
+                ->helperText('Aquí llegarán las facturas.'),
+            TextInput::make('telefono')
+                ->label('Teléfono')
+                ->tel()
+                ->maxLength(20),
+            TextInput::make('direccion')
+                ->label('Dirección')
+                ->maxLength(255)
+                ->columnSpanFull(),
+        ];
     }
 
     public static function table(Table $table): Table
     {
         return $table
             ->recordTitleAttribute('nombre')
+            ->modifyQueryUsing(fn (Builder $query): Builder => $query
+                ->withSum(['ventas as debe' => fn (Builder $query) => $query->porCobrar()], 'saldo_pendiente'))
             ->defaultSort('nombre')
             ->columns([
                 TextColumn::make('nombre')
@@ -96,6 +109,13 @@ class ClienteResource extends Resource
                 TextColumn::make('email')
                     ->label('Correo')
                     ->toggleable(),
+                TextColumn::make('debe')
+                    ->label('Debe')
+                    ->money(decimalPlaces: 0)
+                    ->placeholder('—')
+                    ->color('danger')
+                    ->alignEnd()
+                    ->sortable(),
             ])
             ->filters([
                 SelectFilter::make('tipo_documento')

@@ -24,14 +24,22 @@ final class Reglas
         try {
             return $operacion();
         } catch (ReglaDeNegocio $e) {
-            Notification::make()
-                ->danger()
-                ->title('No se pudo guardar')
-                ->body($e->getMessage())
-                ->persistent()
-                ->send();
+            self::notificar($e);
 
             $action->halt();
         }
+    }
+
+    /**
+     * Muestra el motivo al usuario. Las páginas que no son un botón la usan antes de detenerse.
+     */
+    public static function notificar(ReglaDeNegocio $e): void
+    {
+        Notification::make()
+            ->danger()
+            ->title('No se pudo guardar')
+            ->body($e->getMessage())
+            ->persistent()
+            ->send();
     }
 }

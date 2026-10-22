@@ -6,6 +6,7 @@ use App\Enums\ConceptoSistema;
 use App\Enums\ItemInventario;
 use App\Enums\Rol;
 use App\Enums\TipoMovimiento;
+use Carbon\CarbonInterface;
 use Database\Factories\EmpresaFactory;
 use Filament\Models\Contracts\HasName;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -13,6 +14,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * La empresa es el "inquilino" del SaaS: cada bloquería cliente es una empresa
@@ -209,6 +211,30 @@ class Empresa extends Model implements HasName
     public function ventas(): HasMany
     {
         return $this->hasMany(Venta::class);
+    }
+
+    /**
+     * @return HasOne<CargaInicial, $this>
+     */
+    public function cargaInicial(): HasOne
+    {
+        return $this->hasOne(CargaInicial::class);
+    }
+
+    /**
+     * @return HasMany<CierreMensual, $this>
+     */
+    public function cierresMensuales(): HasMany
+    {
+        return $this->hasMany(CierreMensual::class);
+    }
+
+    /**
+     * Un mes cerrado no acepta movimientos con fecha dentro de él.
+     */
+    public function mesCerrado(CarbonInterface $fecha): bool
+    {
+        return $this->cierresMensuales()->where('anio', $fecha->year)->where('mes', $fecha->month)->exists();
     }
 
     /**

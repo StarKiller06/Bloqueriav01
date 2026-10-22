@@ -2,6 +2,7 @@
 
 namespace App\Actions\Caja;
 
+use App\Exceptions\ReglaDeNegocio;
 use App\Models\ConceptoCaja;
 use App\Models\MovimientoCaja;
 use App\Models\Sucursal;
@@ -31,6 +32,10 @@ class RegistrarMovimiento
 
         if ($sucursal !== null && $sucursal->empresa_id !== $concepto->empresa_id) {
             throw new InvalidArgumentException('La sucursal no pertenece a la empresa del concepto.');
+        }
+
+        if ($concepto->empresa->mesCerrado($fecha)) {
+            throw ReglaDeNegocio::mesCerrado($fecha);
         }
 
         $movimiento = new MovimientoCaja([

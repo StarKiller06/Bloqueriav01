@@ -3,8 +3,10 @@
 namespace App\Filament\Resources\MovimientosCaja;
 
 use App\Enums\TipoMovimiento;
+use App\Exceptions\ReglaDeNegocio;
 use App\Filament\Resources\ConceptosCaja\ConceptoCajaResource;
 use App\Filament\Resources\MovimientosCaja\Pages\ManageMovimientosCaja;
+use App\Filament\Support\Reglas;
 use App\Models\MovimientoCaja;
 use BackedEnum;
 use Filament\Actions\DeleteAction;
@@ -25,6 +27,7 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Query\Builder as QueryBuilder;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Number;
 use UnitEnum;
@@ -152,11 +155,17 @@ class MovimientoCajaResource extends Resource
             ])
             ->recordActions([
                 EditAction::make()
-                    ->mutateDataUsing(function (array $data, MovimientoCaja $record): array {
-                        $data['tipo'] = $record->tipo;
+                    ->using(fn (MovimientoCaja $record, array $data, EditAction $action): MovimientoCaja => Reglas::aplicar($action, function () use ($record, $data): MovimientoCaja {
+                        $fecha = Carbon::parse($data['fecha']);
 
-                        return $data;
-                    }),
+                        if ($record->empresa->mesCerrado($fecha)) {
+                            throw ReglaDeNegocio::mesCerrado($fecha);
+                        }
+
+                        $record->update([...$data, 'tipo' => $record->tipo]);
+
+                        return $record;
+                    })),
                 DeleteAction::make(),
             ]);
     }

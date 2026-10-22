@@ -32,6 +32,8 @@ class ProduccionPolicy
 
     public function delete(User $user, Produccion $produccion): bool
     {
-        return $user->esAdministradorDe($produccion->empresa) && ! $produccion->estaPagada();
+        return $user->esAdministradorDe($produccion->empresa)
+            && ! $produccion->estaPagada()
+            && ! $produccion->empresa->mesCerrado($produccion->fecha);
     }
 }

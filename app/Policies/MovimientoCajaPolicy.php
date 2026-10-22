@@ -29,7 +29,8 @@ class MovimientoCajaPolicy
     public function update(User $user, MovimientoCaja $movimientoCaja): bool
     {
         return $user->esAdministradorDe($movimientoCaja->empresa)
-            && $movimientoCaja->esManual();
+            && $movimientoCaja->esManual()
+            && ! $movimientoCaja->empresa->mesCerrado($movimientoCaja->fecha);
     }
 
     public function delete(User $user, MovimientoCaja $movimientoCaja): bool

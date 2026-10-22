@@ -3,6 +3,8 @@
 namespace Tests\Feature\Filament;
 
 use App\Enums\Rol;
+use App\Filament\Pages\CargaInicialPapel;
+use App\Filament\Pages\ReportesMensuales;
 use App\Filament\Pages\Tenancy\EditarEmpresa;
 use App\Filament\Pages\Tenancy\RegistrarEmpresa;
 use App\Filament\Resources\Clientes\ClienteResource;
@@ -38,6 +40,8 @@ class PanelTest extends TestCase
         return [
             'inicio' => [Dashboard::class],
             'ventas' => [VentaResource::class],
+            'reportes mensuales' => [ReportesMensuales::class],
+            'carga inicial' => [CargaInicialPapel::class],
             'caja' => [MovimientoCajaResource::class],
             'producción' => [ProduccionResource::class],
             'pagos a trabajadores' => [PagoTrabajadorResource::class],

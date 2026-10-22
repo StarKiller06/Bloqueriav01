@@ -22,6 +22,10 @@ class AnularProduccion
             throw new ReglaDeNegocio('Esta producción ya se pagó y no se puede anular.');
         }
 
+        if ($produccion->empresa->mesCerrado($produccion->fecha)) {
+            throw ReglaDeNegocio::mesCerrado($produccion->fecha);
+        }
+
         DB::transaction(function () use ($produccion): void {
             $sucursal = $produccion->sucursal;
             $this->bloquear($sucursal);

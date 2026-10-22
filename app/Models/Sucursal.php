@@ -70,12 +70,14 @@ class Sucursal extends Model
     }
 
     /**
-     * Bloques que aún alcanzan con la arena recibida: lo estimado por los viajes menos lo producido.
+     * Bloques que aún alcanzan con la arena: lo que había en la carga inicial más lo estimado
+     * por los viajes, menos lo producido.
      * Es una estimación; puede quedar negativa si la arena rindió más de lo esperado.
      */
     public function arenaRestante(): int
     {
         return (int) $this->viajesArena()->sum('bloques_estimados')
+            + (int) DetalleCargaInicial::query()->where('sucursal_id', $this->getKey())->sum('arena_bloques')
             - (int) $this->producciones()->sum('bloques_sacados');
     }
 }

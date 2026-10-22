@@ -2,6 +2,8 @@
 
 namespace Database\Seeders;
 
+use App\Actions\Arranque\CerrarCargaInicial;
+use App\Actions\Arranque\GuardarCargaInicial;
 use App\Actions\Caja\RegistrarMovimiento;
 use App\Actions\Inventario\RegistrarCompraCemento;
 use App\Actions\Inventario\RegistrarViajeArena;
@@ -10,7 +12,6 @@ use App\Actions\Produccion\PagarTrabajador;
 use App\Actions\Produccion\RegistrarProduccion;
 use App\Actions\Ventas\RegistrarAbono;
 use App\Actions\Ventas\RegistrarVenta;
-use App\Enums\ConceptoSistema;
 use App\Enums\FormaPago;
 use App\Enums\Rol;
 use App\Enums\TipoDocumento;
@@ -22,7 +23,7 @@ class DatabaseSeeder extends Seeder
 {
     /**
      * Datos de demostración: una bloquería con dos sucursales, un administrador, un encargado,
-     * el bloque con su precio, trabajadores, clientes, caja, cemento, arena, producción, un pago y ventas de contado y a crédito de ejemplo.
+     * el bloque con su precio, trabajadores, clientes, la carga inicial del papel, caja, cemento, arena, producción, un pago y ventas de contado y a crédito de ejemplo.
      */
     public function run(): void
     {
@@ -69,7 +70,11 @@ class DatabaseSeeder extends Seeder
         $registrar = new RegistrarMovimiento;
         $concepto = fn (string $nombre) => $empresa->conceptosCaja()->firstWhere('nombre', $nombre);
 
-        $registrar($empresa->conceptoSistema(ConceptoSistema::SaldoInicial), 4000000, now()->startOfMonth(), $administrador, nota: 'Ejemplo: total del papel');
+        $carga = app(GuardarCargaInicial::class)($empresa, now()->startOfMonth(), 4000000, [
+            $sucursal1->id => ['bloques' => 300, 'cemento' => 5, 'arena_bloques' => 300],
+            $sucursal2->id => ['bloques' => 200, 'cemento' => 5, 'arena_bloques' => 0],
+        ], $administrador);
+        app(CerrarCargaInicial::class)($carga);
         $registrar($concepto('Venta de arena'), 120000, now()->startOfMonth()->addDays(2), $encargado, $sucursal1);
         $registrar($concepto('Luz'), 85000, now()->startOfMonth()->addDays(4), $administrador, $sucursal2, 'Ejemplo');
         $registrar($concepto('Transporte'), 40000, now(), $encargado, $sucursal1);
@@ -97,6 +102,6 @@ class DatabaseSeeder extends Seeder
         $vender($sucursal2, $lineas(200, 1750), FormaPago::Contado, $inicio->copy()->addDays(8), $clienteEjemplo, user: $encargado);
         $credito = $vender($sucursal1, $lineas(300, 1700), FormaPago::Credito, $inicio->copy()->addDays(8), $constructora, $inicio->copy()->addDays(38), $administrador);
         app(RegistrarAbono::class)($credito, 200000, $inicio->copy()->addDays(10), $administrador);
-        $vender($sucursal2, $lineas(100), FormaPago::Credito, $inicio->copy()->subDays(40), $clienteEjemplo, $inicio->copy()->subDays(10), $administrador);
+        $vender($sucursal2, $lineas(100), FormaPago::Credito, $inicio->copy()->addDays(8), $clienteEjemplo, $inicio->copy()->addDays(12), $administrador);
     }
 }

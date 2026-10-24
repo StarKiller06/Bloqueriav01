@@ -36,8 +36,8 @@ return [
     | Bloquería y usuarios iniciales
     |--------------------------------------------------------------------------
     |
-    | Los crea UsuariosInicialesSeeder. Los correos viven aquí; las contraseñas
-    | solo en el .env del servidor, para que nunca queden guardadas en git.
+    | Los crea UsuariosInicialesSeeder. Correos y contraseñas viven solo en el
+    | .env del servidor, para que nunca queden guardados en git.
     |
     */
 

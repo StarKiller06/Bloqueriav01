@@ -23,6 +23,10 @@ class UsuariosInicialesSeeder extends Seeder
         $empresa = $this->empresa();
 
         foreach (config('bloqueria.usuarios_iniciales') as $datos) {
+            if (blank($datos['email'])) {
+                throw new RuntimeException("Falta el correo de {$datos['nombre']} en el .env.");
+            }
+
             $user = User::query()->firstWhere('email', $datos['email']);
 
             if ($user === null) {

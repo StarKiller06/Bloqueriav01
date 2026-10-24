@@ -64,6 +64,15 @@ class UsuariosInicialesSeederTest extends TestCase
         $this->seed(UsuariosInicialesSeeder::class);
     }
 
+    public function test_refuses_to_create_a_user_without_an_email(): void
+    {
+        config(['bloqueria.usuarios_iniciales.0.email' => null]);
+
+        $this->expectExceptionMessage('Falta el correo de Administrador');
+
+        $this->seed(UsuariosInicialesSeeder::class);
+    }
+
     public function test_the_demo_data_is_never_loaded_in_production(): void
     {
         $this->app['env'] = 'production';

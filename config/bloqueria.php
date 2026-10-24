@@ -17,6 +17,22 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Marca
+    |--------------------------------------------------------------------------
+    |
+    | Nombre y lema que se muestran junto al emblema (public/img/emblema.png)
+    | en el panel y en los PDF.
+    |
+    */
+
+    'marca' => [
+        'nombre' => env('BLOQUERIA_MARCA_NOMBRE', 'La Principal'),
+        'antetitulo' => env('BLOQUERIA_MARCA_ANTETITULO', 'Bloquera'),
+        'lema' => env('BLOQUERIA_MARCA_LEMA', 'Fuerza que construye confianza'),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
     | Bloquería y usuarios iniciales
     |--------------------------------------------------------------------------
     |

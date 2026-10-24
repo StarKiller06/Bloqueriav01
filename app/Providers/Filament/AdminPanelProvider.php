@@ -4,6 +4,7 @@ namespace App\Providers\Filament;
 
 use App\Filament\Pages\Tenancy\EditarEmpresa;
 use App\Filament\Pages\Tenancy\RegistrarEmpresa;
+use App\Filament\Support\PaletaMarca;
 use App\Models\Empresa;
 use Filament\Auth\Pages\Register;
 use Filament\Http\Middleware\Authenticate;
@@ -30,7 +31,10 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
-            ->brandName('Bloquería')
+            ->brandName(config('bloqueria.marca.nombre'))
+            ->brandLogo(fn () => view('filament.marca'))
+            ->brandLogoHeight('2.75rem')
+            ->favicon(asset('img/favicon.png'))
             ->login()
             ->registration(config('bloqueria.registro_abierto') ? Register::class : null)
             ->passwordReset()
@@ -39,8 +43,12 @@ class AdminPanelProvider extends PanelProvider
             ->tenantRegistration(RegistrarEmpresa::class)
             ->tenantProfile(EditarEmpresa::class)
             ->colors([
-                'primary' => Color::Amber,
-                'gray' => Color::Stone,
+                'primary' => PaletaMarca::primaria(),
+                'gray' => PaletaMarca::gris(),
+                'success' => Color::Emerald,
+                'warning' => Color::Amber,
+                'danger' => Color::Red,
+                'info' => Color::Sky,
             ])
             ->navigationGroups(['Ventas', 'Producción', 'Inventario', 'Finanzas', 'Catálogos', 'Configuración'])
             ->databaseNotifications()

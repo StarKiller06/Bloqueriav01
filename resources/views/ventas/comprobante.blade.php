@@ -1,6 +1,7 @@
 @php
     /** @var \App\Models\Venta $venta */
     $pesos = fn ($valor) => \Illuminate\Support\Number::currency((float) $valor, 'COP', 'es_CO', 0);
+    $emblema = 'data:image/jpeg;base64,'.base64_encode(file_get_contents(public_path('img/emblema-pdf.jpg')));
 @endphp
 <!DOCTYPE html>
 <html lang="es">
@@ -9,23 +10,25 @@
     <title>Comprobante de venta {{ $venta->numeroFormateado() }}</title>
     <style>
         @page { margin: 32px 40px; }
-        body { font-family: DejaVu Sans, sans-serif; font-size: 11px; color: #1d2225; }
-        h1 { font-size: 18px; margin: 0; }
+        body { font-family: DejaVu Sans, sans-serif; font-size: 11px; color: #23221e; }
+        h1 { font-size: 18px; margin: 0; color: #0b4a24; font-style: italic; text-transform: uppercase; }
+        .emblema { width: 58px; padding-right: 10px; }
+        .emblema img { width: 58px; height: 58px; }
         .muted { color: #586266; }
-        .encabezado { width: 100%; border-bottom: 2px solid #1d2225; padding-bottom: 10px; margin-bottom: 14px; }
+        .encabezado { width: 100%; border-bottom: 2px solid #247830; padding-bottom: 10px; margin-bottom: 14px; }
         .encabezado td { vertical-align: top; }
         .numero { text-align: right; }
-        .numero strong { font-size: 16px; }
+        .numero strong { font-size: 16px; color: #0b4a24; }
         .datos { width: 100%; margin-bottom: 14px; }
         .datos td { padding: 2px 0; vertical-align: top; width: 50%; }
         .etiqueta { color: #586266; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; }
         table.lineas { width: 100%; border-collapse: collapse; margin-bottom: 12px; }
-        table.lineas th { text-align: left; border-bottom: 1px solid #1d2225; padding: 6px 4px; font-size: 9px; text-transform: uppercase; }
+        table.lineas th { text-align: left; border-bottom: 1px solid #0b4a24; color: #0b4a24; padding: 6px 4px; font-size: 9px; text-transform: uppercase; }
         table.lineas td { border-bottom: 1px solid #d3d8d6; padding: 6px 4px; }
         .num, table.lineas th.num { text-align: right; }
         table.totales { width: 45%; margin-left: 55%; border-collapse: collapse; }
         table.totales td { padding: 4px; }
-        table.totales .total td { font-size: 14px; font-weight: bold; border-top: 2px solid #1d2225; }
+        table.totales .total td { font-size: 14px; font-weight: bold; border-top: 2px solid #247830; color: #0b4a24; }
         .saldo { color: #ae2a20; }
         .anulada { color: #ae2a20; font-size: 14px; font-weight: bold; border: 2px solid #ae2a20; padding: 6px; text-align: center; margin-bottom: 12px; }
         .pie { margin-top: 28px; font-size: 9px; color: #586266; border-top: 1px solid #d3d8d6; padding-top: 8px; }
@@ -34,6 +37,7 @@
 <body>
     <table class="encabezado">
         <tr>
+            <td class="emblema"><img src="{{ $emblema }}" alt=""></td>
             <td>
                 <h1>{{ $venta->empresa->nombre }}</h1>
                 <div class="muted">NIT {{ $venta->empresa->nit }}</div>

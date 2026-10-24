@@ -12,41 +12,58 @@ use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 
 /**
- * Paga al trabajador todas sus producciones pendientes, por bulto. Los bloques de más
- * no cambian el pago. El monto sugerido se puede ajustar, y sale de la caja.
+ * Paga al trabajador por bulto los días de producción elegidos (o todos los pendientes).
+ * El monto siempre es bultos × tarifa por bulto, así que bultos y monto coinciden.
+ * Los bloques de más no cambian el pago, y pagar no toca el cemento: ese ya se
+ * descontó al registrar la producción.
  */
 class PagarTrabajador
 {
     public function __construct(private RegistrarMovimiento $moverCaja) {}
 
     /**
-     * Lo que le correspondería hoy: bultos pendientes × tarifa por bulto de la empresa.
+     * Lo que le correspondería por todo lo pendiente: bultos pendientes × tarifa por bulto.
      */
     public static function montoSugerido(Trabajador $trabajador): float
     {
         return $trabajador->bultosPorPagar() * (float) $trabajador->empresa->tarifa_por_bulto;
     }
 
+    /**
+     * @param  list<int>|null  $produccionIds  días a pagar; null para pagar todo lo pendiente
+     */
     public function __invoke(
         Trabajador $trabajador,
         CarbonInterface $fecha,
-        string|float|null $monto = null,
+        ?array $produccionIds = null,
         ?User $user = null,
     ): PagoTrabajador {
-        return DB::transaction(function () use ($trabajador, $fecha, $monto, $user): PagoTrabajador {
-            $pendientes = $trabajador->producciones()->sinPagar()->lockForUpdate()->get();
+        $tarifa = (float) $trabajador->empresa->tarifa_por_bulto;
+
+        if ($tarifa <= 0) {
+            throw new ReglaDeNegocio('La tarifa por bulto está en $0. Configúrala en "Datos de la bloquería" antes de pagar.');
+        }
+
+        if ($produccionIds === []) {
+            throw new ReglaDeNegocio('Elige al menos un día de producción para pagar.');
+        }
+
+        return DB::transaction(function () use ($trabajador, $fecha, $produccionIds, $user, $tarifa): PagoTrabajador {
+            $pendientes = $trabajador->producciones()->sinPagar()
+                ->when($produccionIds !== null, fn ($query) => $query->whereKey($produccionIds))
+                ->lockForUpdate()
+                ->get();
 
             if ($pendientes->isEmpty()) {
                 throw new ReglaDeNegocio("{$trabajador->nombre} no tiene producción pendiente por pagar.");
             }
 
-            $bultos = (int) $pendientes->sum('bultos_usados');
-            $tarifa = (float) $trabajador->empresa->tarifa_por_bulto;
-            $monto ??= $bultos * $tarifa;
-
-            if ((float) $monto <= 0) {
-                throw new ReglaDeNegocio('El monto del pago debe ser mayor que cero. Revisa la tarifa por bulto en los datos de la bloquería.');
+            if ($produccionIds !== null && $pendientes->count() !== count(array_unique($produccionIds))) {
+                throw new ReglaDeNegocio('Alguno de los días elegidos ya estaba pagado o no es de este trabajador.');
             }
+
+            $bultos = (int) $pendientes->sum('bultos_usados');
+            $monto = $bultos * $tarifa;
 
             $pago = new PagoTrabajador([
                 'trabajador_id' => $trabajador->getKey(),

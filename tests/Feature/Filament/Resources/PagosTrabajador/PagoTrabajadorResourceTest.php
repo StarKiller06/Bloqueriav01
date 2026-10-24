@@ -18,19 +18,22 @@ class PagoTrabajadorResourceTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_pays_from_the_trabajadores_list_with_the_suggested_amount(): void
+    public function test_pays_every_pending_day_from_the_trabajadores_list_by_default(): void
     {
         [$empresa, $trabajador] = $this->escenario();
-        Produccion::factory()->for($trabajador)->resultado(4, 412)->create();
+        $lunes = Produccion::factory()->for($trabajador)->resultado(4, 412)->create();
+        $martes = Produccion::factory()->for($trabajador)->resultado(3, 284)->create();
 
         Livewire::test(ManageTrabajadores::class)
             ->mountAction(TestAction::make('pagar')->table($trabajador))
-            ->assertActionDataSet(['monto' => 60000.0])
+            ->assertActionDataSet(['producciones' => [$lunes->id, $martes->id]])
             ->callMountedAction()
             ->assertHasNoFormErrors();
 
-        $this->assertSame('60000.00', $trabajador->pagos()->sole()->monto);
-        $this->assertSame(-60000.0, $empresa->saldoCaja());
+        $pago = $trabajador->pagos()->sole();
+        $this->assertSame(7, $pago->bultos_pagados);
+        $this->assertSame('105000.00', $pago->monto);
+        $this->assertSame(-105000.0, $empresa->saldoCaja());
     }
 
     public function test_hides_the_pay_button_when_nothing_is_pending(): void
@@ -41,20 +44,40 @@ class PagoTrabajadorResourceTest extends TestCase
             ->assertActionHidden(TestAction::make('pagar')->table($trabajador));
     }
 
-    public function test_pays_an_adjusted_amount_from_the_pagos_page(): void
+    public function test_pays_only_some_days_from_the_pagos_page(): void
     {
         [$empresa, $trabajador] = $this->escenario();
         Produccion::factory()->for($trabajador)->resultado(4, 412)->create();
+        $martes = Produccion::factory()->for($trabajador)->resultado(3, 284)->create();
 
         Livewire::test(ManagePagosTrabajador::class)
             ->callAction('pagar', data: [
                 'trabajador_id' => $trabajador->id,
+                'producciones' => [$martes->id],
                 'fecha' => now()->toDateString(),
-                'monto' => 62000,
             ])
             ->assertHasNoFormErrors();
 
-        $this->assertSame(-62000.0, $empresa->saldoCaja());
+        $this->assertSame(3, $trabajador->pagos()->sole()->bultos_pagados);
+        $this->assertSame(-45000.0, $empresa->saldoCaja());
+        $this->assertSame(4, $trabajador->bultosPorPagar());
+    }
+
+    public function test_explains_that_the_tarifa_must_be_configured(): void
+    {
+        [$empresa, $trabajador] = $this->escenario();
+        $empresa->update(['tarifa_por_bulto' => 0]);
+        $lunes = Produccion::factory()->for($trabajador)->resultado(4, 412)->create();
+
+        Livewire::test(ManagePagosTrabajador::class)
+            ->callAction('pagar', data: [
+                'trabajador_id' => $trabajador->id,
+                'producciones' => [$lunes->id],
+                'fecha' => now()->toDateString(),
+            ])
+            ->assertNotified('No se pudo guardar');
+
+        $this->assertSame(0, $trabajador->pagos()->count());
     }
 
     public function test_shows_the_trabajador_rendimiento_in_the_list(): void

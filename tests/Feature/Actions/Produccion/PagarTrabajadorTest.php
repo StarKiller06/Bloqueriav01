@@ -3,9 +3,12 @@
 namespace Tests\Feature\Actions\Produccion;
 
 use App\Actions\Produccion\PagarTrabajador;
+use App\Actions\Produccion\RegistrarProduccion;
 use App\Enums\ConceptoSistema;
+use App\Enums\ItemInventario;
 use App\Exceptions\ReglaDeNegocio;
 use App\Models\Empresa;
+use App\Models\MovimientoInventario;
 use App\Models\Produccion;
 use App\Models\Sucursal;
 use App\Models\Trabajador;
@@ -35,15 +38,41 @@ class PagarTrabajadorTest extends TestCase
         ));
     }
 
-    public function test_accepts_an_adjusted_amount(): void
+    public function test_pays_only_the_chosen_days_and_the_amount_matches_their_bultos(): void
+    {
+        $trabajador = $this->trabajador(tarifa: 15000);
+        $lunes = Produccion::factory()->for($trabajador)->resultado(4, 412)->create();
+        $martes = Produccion::factory()->for($trabajador)->resultado(3, 284)->create();
+
+        $pago = app(PagarTrabajador::class)($trabajador, now(), [$martes->id]);
+
+        $this->assertSame(3, $pago->bultos_pagados);
+        $this->assertSame('45000.00', $pago->monto);
+        $this->assertTrue($martes->fresh()->estaPagada());
+        $this->assertFalse($lunes->fresh()->estaPagada());
+        $this->assertSame(4, $trabajador->bultosPorPagar());
+    }
+
+    public function test_rejects_days_of_another_trabajador(): void
     {
         $trabajador = $this->trabajador(tarifa: 15000);
         Produccion::factory()->for($trabajador)->resultado(4, 412)->create();
+        $ajena = Produccion::factory()->create();
 
-        $pago = app(PagarTrabajador::class)($trabajador, now(), 65000);
+        $this->expectException(ReglaDeNegocio::class);
 
-        $this->assertSame('65000.00', $pago->monto);
-        $this->assertSame(-65000.0, $trabajador->empresa->saldoCaja());
+        app(PagarTrabajador::class)($trabajador, now(), [$ajena->id]);
+    }
+
+    public function test_paying_does_not_touch_the_cemento(): void
+    {
+        $trabajador = $this->trabajador(tarifa: 15000);
+        MovimientoInventario::factory()->for($trabajador->sucursal)->cemento(10)->create();
+        app(RegistrarProduccion::class)($trabajador, $trabajador->empresa->productos()->sole(), 4, 412, now());
+
+        app(PagarTrabajador::class)($trabajador, now());
+
+        $this->assertSame(6, $trabajador->sucursal->stock(ItemInventario::Cemento));
     }
 
     public function test_does_not_pay_the_same_produccion_twice(): void

@@ -6,12 +6,13 @@ use App\Actions\Produccion\PagarTrabajador;
 use App\Filament\Resources\PagosTrabajador\Pages\ManagePagosTrabajador;
 use App\Filament\Support\Reglas;
 use App\Models\PagoTrabajador;
+use App\Models\Produccion;
 use App\Models\Trabajador;
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
-use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Components\Utilities\Set;
@@ -22,6 +23,8 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Number;
 use UnitEnum;
 
 class PagoTrabajadorResource extends Resource
@@ -42,7 +45,8 @@ class PagoTrabajadorResource extends Resource
 
     /**
      * Botón "Pagar". Desde la lista de trabajadores ya viene con el trabajador elegido;
-     * desde esta página se elige. Sugiere bultos pendientes × tarifa, y el monto se puede ajustar.
+     * desde esta página se elige. Se marcan los días de producción a pagar (todos, por defecto)
+     * y el monto se calcula solo: bultos de esos días × tarifa por bulto.
      */
     public static function pagarAction(bool $conTrabajador = false): Action
     {
@@ -53,10 +57,11 @@ class PagoTrabajadorResource extends Resource
             ->authorize(fn (): bool => auth()->user()->can('create', PagoTrabajador::class))
             ->visible(fn (?Trabajador $record): bool => ! $conTrabajador || $record?->bultosPorPagar() > 0)
             ->modalHeading(fn (?Trabajador $record): string => $record ? "Pagar a {$record->nombre}" : 'Pagar a un trabajador')
+            ->modalDescription('El cemento de estos bultos ya se descontó del inventario al registrar la producción; pagar no lo vuelve a descontar.')
             ->fillForm(fn (?Trabajador $record): array => [
                 'trabajador_id' => $record?->id,
                 'fecha' => now()->toDateString(),
-                'monto' => $record ? PagarTrabajador::montoSugerido($record) : null,
+                'producciones' => $record ? static::pendientes($record)->keys()->all() : [],
             ])
             ->schema([
                 Select::make('trabajador_id')
@@ -69,40 +74,75 @@ class PagoTrabajadorResource extends Resource
                     ->required()
                     ->hidden($conTrabajador)
                     ->live()
-                    ->afterStateUpdated(fn (Set $set, ?string $state) => $set('monto', $state
-                        ? PagarTrabajador::montoSugerido(Trabajador::findOrFail($state))
-                        : null)),
+                    ->afterStateUpdated(fn (Set $set, ?string $state) => $set('producciones', $state
+                        ? static::pendientes(Trabajador::findOrFail($state))->keys()->all()
+                        : [])),
+                CheckboxList::make('producciones')
+                    ->label('Días de producción a pagar')
+                    ->options(fn (Get $get, ?Trabajador $record): array => ($trabajador = $record ?? Trabajador::find($get('trabajador_id')))
+                        ? static::pendientes($trabajador)->all()
+                        : [])
+                    ->required()
+                    ->bulkToggleable()
+                    ->live()
+                    ->helperText(fn (Get $get, ?Trabajador $record): ?string => static::resumen($record ?? Trabajador::find($get('trabajador_id')), $get('producciones') ?? [])),
                 DatePicker::make('fecha')
+                    ->label('Fecha del pago')
                     ->default(now())
                     ->maxDate(now())
                     ->required(),
-                TextInput::make('monto')
-                    ->numeric()
-                    ->minValue(1)
-                    ->prefix('$')
-                    ->required()
-                    ->helperText(fn (Get $get): ?string => static::detalle($get('trabajador_id'))),
             ])
             ->action(function (array $data, Action $action, PagarTrabajador $pagar, ?Trabajador $record): void {
                 $trabajador = $record ?? Trabajador::findOrFail($data['trabajador_id']);
 
-                Reglas::aplicar($action, fn () => $pagar($trabajador, Carbon::parse($data['fecha']), $data['monto'], auth()->user()));
+                Reglas::aplicar($action, fn () => $pagar(
+                    $trabajador,
+                    Carbon::parse($data['fecha']),
+                    array_map('intval', $data['producciones']),
+                    auth()->user(),
+                ));
             })
             ->successNotificationTitle('Pago registrado y descontado de la caja');
     }
 
-    private static function detalle(mixed $trabajadorId): ?string
+    /**
+     * Días pendientes del trabajador, listos para mostrar: "03/10 · 4 bultos · 412 bloques".
+     *
+     * @return Collection<int, string>
+     */
+    private static function pendientes(Trabajador $trabajador): Collection
     {
-        $trabajador = filled($trabajadorId) ? Trabajador::find($trabajadorId) : null;
+        return $trabajador->producciones()->sinPagar()->orderBy('fecha')->orderBy('id')->get()
+            ->mapWithKeys(fn (Produccion $produccion): array => [$produccion->id => sprintf(
+                '%s · %d bultos · %s bloques',
+                $produccion->fecha->format('d/m/Y'),
+                $produccion->bultos_usados,
+                number_format($produccion->bloques_sacados, 0, ',', '.'),
+            )]);
+    }
 
+    /**
+     * @param  array<int|string>  $elegidas
+     */
+    private static function resumen(?Trabajador $trabajador, array $elegidas): ?string
+    {
         if ($trabajador === null) {
             return null;
         }
 
+        $tarifa = (float) $trabajador->empresa->tarifa_por_bulto;
+
+        if ($tarifa <= 0) {
+            return 'La tarifa por bulto está en $0: configúrala en "Datos de la bloquería".';
+        }
+
+        $bultos = (int) $trabajador->producciones()->sinPagar()->whereKey($elegidas)->sum('bultos_usados');
+
         return sprintf(
-            '%d bultos pendientes × $%s por bulto. Los bloques de más no cambian el pago.',
-            $trabajador->bultosPorPagar(),
-            number_format((float) $trabajador->empresa->tarifa_por_bulto, 0, ',', '.'),
+            'A pagar: %d bultos × %s = %s',
+            $bultos,
+            Number::currency($tarifa, 'COP', 'es_CO', 0),
+            Number::currency($bultos * $tarifa, 'COP', 'es_CO', 0),
         );
     }
 

@@ -66,11 +66,15 @@ class PagoTrabajadorResource extends Resource
             ->schema([
                 Select::make('trabajador_id')
                     ->label('Trabajador')
-                    ->options(fn (): array => Trabajador::query()
-                        ->whereHas('producciones', fn (Builder $query) => $query->sinPagar())
-                        ->orderBy('nombre')
-                        ->pluck('nombre', 'id')
+                    ->options(fn (): array => static::bultosPendientesPorTrabajador()
+                        ->map(fn (Trabajador $trabajador): string => $trabajador->bultos_pendientes > 0
+                            ? "{$trabajador->nombre} · {$trabajador->bultos_pendientes} bultos por pagar"
+                            : "{$trabajador->nombre} · nada pendiente")
                         ->all())
+                    ->disableOptionWhen(fn (string $value): bool => (int) (static::bultosPendientesPorTrabajador()[(int) $value]?->bultos_pendientes ?? 0) === 0)
+                    ->helperText(fn (): ?string => static::bultosPendientesPorTrabajador()->every(fn (Trabajador $trabajador): bool => (int) $trabajador->bultos_pendientes === 0)
+                        ? 'Nadie tiene producción pendiente por pagar. Primero registra lo que sacó cada trabajador en Producción → Registrar producción.'
+                        : null)
                     ->required()
                     ->hidden($conTrabajador)
                     ->live()
@@ -103,6 +107,21 @@ class PagoTrabajadorResource extends Resource
                 ));
             })
             ->successNotificationTitle('Pago registrado y descontado de la caja');
+    }
+
+    /**
+     * Trabajadores activos con los bultos que se les deben, para elegir a quién pagar.
+     *
+     * @return Collection<int, Trabajador>
+     */
+    private static function bultosPendientesPorTrabajador(): Collection
+    {
+        return once(fn (): Collection => Trabajador::query()
+            ->activos()
+            ->withSum(['producciones as bultos_pendientes' => fn (Builder $query) => $query->sinPagar()], 'bultos_usados')
+            ->orderBy('nombre')
+            ->get()
+            ->keyBy('id'));
     }
 
     /**

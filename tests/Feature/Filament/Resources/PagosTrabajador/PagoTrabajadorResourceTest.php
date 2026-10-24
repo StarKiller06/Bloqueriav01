@@ -10,6 +10,7 @@ use App\Models\Sucursal;
 use App\Models\Trabajador;
 use App\Models\User;
 use Filament\Actions\Testing\TestAction;
+use Filament\Forms\Components\Select;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -61,6 +62,31 @@ class PagoTrabajadorResourceTest extends TestCase
         $this->assertSame(3, $trabajador->pagos()->sole()->bultos_pagados);
         $this->assertSame(-45000.0, $empresa->saldoCaja());
         $this->assertSame(4, $trabajador->bultosPorPagar());
+    }
+
+    public function test_lists_every_active_trabajador_and_only_enables_those_with_pending_bultos(): void
+    {
+        [, $conPendiente] = $this->escenario();
+        $sinPendiente = Trabajador::factory()->for($conPendiente->sucursal)->create(['nombre' => 'Sin pendiente']);
+        Produccion::factory()->for($conPendiente)->resultado(4, 412)->create();
+
+        Livewire::test(ManagePagosTrabajador::class)
+            ->mountAction('pagar')
+            ->assertFormFieldExists('trabajador_id', 'mountedActionSchema0', fn (Select $campo): bool => str_contains($campo->getOptions()[$conPendiente->id], '4 bultos por pagar')
+                && ! $campo->isOptionDisabled($conPendiente->id, $campo->getOptions()[$conPendiente->id])
+                && $campo->isOptionDisabled($sinPendiente->id, $campo->getOptions()[$sinPendiente->id]));
+    }
+
+    public function test_explains_what_to_do_when_nobody_has_pending_production(): void
+    {
+        $this->escenario();
+
+        Livewire::test(ManagePagosTrabajador::class)
+            ->mountAction('pagar')
+            ->assertFormFieldExists('trabajador_id', 'mountedActionSchema0', fn (Select $campo): bool => str_contains(
+                (string) $campo->getChildSchema($campo::BELOW_CONTENT_SCHEMA_KEY)?->getComponents()[0]?->getContent(),
+                'Nadie tiene producción pendiente por pagar',
+            ));
     }
 
     public function test_explains_that_the_tarifa_must_be_configured(): void

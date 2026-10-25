@@ -11,6 +11,7 @@ git fetch --quiet origin main
 git reset --hard origin/main
 
 docker compose build
+docker compose up -d --wait db
 docker compose run --rm --no-deps -u www-data app php artisan migrate --force
 docker compose up -d --remove-orphans
 docker image prune -f > /dev/null

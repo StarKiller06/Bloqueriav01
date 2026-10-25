@@ -1,0 +1,14 @@
+# SITE_ADDRESS viene del .env: el dominio (HTTPS automático) o :80 mientras no haya dominio.
+{$SITE_ADDRESS::80} {
+	root * /var/www/html/public
+	encode zstd gzip
+
+	header {
+		X-Frame-Options SAMEORIGIN
+		X-Content-Type-Options nosniff
+		-Server
+	}
+
+	php_fastcgi app:9000
+	file_server
+}

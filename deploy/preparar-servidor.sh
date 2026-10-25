@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
 #
-# Prepara un EC2 nuevo con Ubuntu 24.04 (se corre UNA sola vez, con sudo):
+# Prepara un EC2 nuevo con Ubuntu (se corre UNA sola vez, con sudo):
 #   sudo bash preparar-servidor.sh
 #
-# Instala PHP 8.5, Nginx, PostgreSQL, Composer, Node 22, Supervisor y Certbot,
-# crea el usuario "deploy" (dueño de la app y de PHP-FPM) y la carpeta
-# /var/www/bloqueria. No toca contraseñas: la base de datos y el .env se
-# configuran a mano después (ver los pasos que imprime al final).
+# Instala Docker, agrega 2 GB de swap y deja el proyecto en /opt/bloqueria
+# a nombre del usuario ubuntu. PHP, PostgreSQL y el servidor web corren
+# dentro de los contenedores, así que no se instalan en el sistema.
 #
 set -euo pipefail
 
@@ -18,37 +17,24 @@ fi
 export DEBIAN_FRONTEND=noninteractive
 
 apt-get update
-apt-get install -y software-properties-common curl git unzip ufw cron
-add-apt-repository -y ppa:ondrej/php
-curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
-apt-get update
+apt-get install -y git docker.io docker-compose-v2 docker-buildx
+systemctl enable --now docker
+usermod -aG docker ubuntu
 
-apt-get install -y \
-    nginx postgresql supervisor certbot python3-certbot-nginx nodejs \
-    php8.5-fpm php8.5-cli php8.5-pgsql php8.5-mbstring php8.5-xml php8.5-curl \
-    php8.5-zip php8.5-gd php8.5-intl php8.5-bcmath
-
-if [[ ! -x /usr/local/bin/composer ]]; then
-    curl -fsSL https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+if [[ ! -f /swapfile ]]; then
+    fallocate -l 2G /swapfile
+    chmod 600 /swapfile
+    mkswap /swapfile
+    swapon /swapfile
+    echo '/swapfile none swap sw 0 0' >> /etc/fstab
 fi
 
-if ! id deploy &>/dev/null; then
-    adduser --disabled-password --gecos "" deploy
-    usermod -aG www-data deploy
-    install -d -m 700 -o deploy -g deploy /home/deploy/.ssh
+if [[ ! -d /opt/bloqueria/.git ]]; then
+    git clone https://github.com/StarKiller06/Bloqueriav01.git /opt/bloqueria
 fi
+chown -R ubuntu:ubuntu /opt/bloqueria
 
-sed -i 's/^user = www-data/user = deploy/; s/^group = www-data/group = deploy/' /etc/php/8.5/fpm/pool.d/www.conf
-systemctl restart php8.5-fpm
-
-install -d -o deploy -g deploy /var/www/bloqueria
-
-echo "* * * * * cd /var/www/bloqueria && php artisan schedule:run >> /dev/null 2>&1" | crontab -u deploy -
-
-ufw allow OpenSSH
-ufw allow 'Nginx Full'
-ufw --force enable
-
-php -v | head -1
+docker --version
+docker compose version
 echo
-echo "Listo. Revisa que PHP sea 8.5.12 o superior. Siguientes pasos en el mensaje de despliegue."
+echo "Listo. Falta crear /opt/bloqueria/.env (ver deploy/env.produccion.example)."

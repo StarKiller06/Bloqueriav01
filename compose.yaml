@@ -1,0 +1,71 @@
+# Producción en EC2. Lee la configuración del .env de esta carpeta
+# (ver deploy/env.produccion.example). Uso: bash deploy/deploy.sh
+name: bloqueria
+
+x-app: &app
+  image: bloqueria-app
+  restart: unless-stopped
+  volumes:
+    - ./.env:/var/www/html/.env:ro
+    - storage:/var/www/html/storage
+  depends_on:
+    db:
+      condition: service_healthy
+
+services:
+  app:
+    <<: *app
+    build:
+      context: .
+      target: app
+
+  web:
+    build:
+      context: .
+      target: web
+    image: bloqueria-web
+    restart: unless-stopped
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-:80}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+  queue:
+    <<: *app
+    pull_policy: never
+    user: www-data
+    command: ["php", "artisan", "queue:work", "--sleep=3", "--tries=3", "--max-time=3600"]
+
+  scheduler:
+    <<: *app
+    pull_policy: never
+    user: www-data
+    command: ["php", "artisan", "schedule:work"]
+
+  db:
+    image: docker.io/library/postgres:18.6-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  storage:
+  postgres:
+  caddy_data:
+  caddy_config:

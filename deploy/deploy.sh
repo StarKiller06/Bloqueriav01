@@ -5,22 +5,14 @@
 #
 set -euo pipefail
 
-cd /var/www/bloqueria
-
-php artisan down --retry=15 || true
-trap 'php artisan up' EXIT
+cd /opt/bloqueria
 
 git fetch --quiet origin main
 git reset --hard origin/main
 
-composer install --no-dev --no-interaction --prefer-dist --optimize-autoloader --no-progress
-npm ci --no-audit --no-fund
-npm run build
-
-php artisan migrate --force
-php artisan storage:link 2>/dev/null || true
-php artisan optimize
-php artisan filament:optimize
-php artisan queue:restart
+docker compose build
+docker compose run --rm --no-deps -u www-data app php artisan migrate --force
+docker compose up -d --remove-orphans
+docker image prune -f > /dev/null
 
 echo "Despliegue terminado: $(git log -1 --format='%h %s')"
